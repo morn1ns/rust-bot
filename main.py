@@ -1,17 +1,27 @@
 import logging
 from telebot import TeleBot, types
-import telebot
 import os
+from pathlib import Path
 
-# Включаем логирование
 logging.basicConfig(level=logging.INFO)
 
-# 🔑 ВАШ ТОКЕН (замените на ваш токен от @BotFather)
-BOT_TOKEN = "8629480121:AAFPHKKdk7X-IOKyZZIDd_V-QcuKdmS2FHc"
-
+BOT_TOKEN = os.environ.get("8629480121:AAFPHKKdk7X-IOKyZZIDd_V-QcuKdmS2FHc")
 bot = TeleBot(BOT_TOKEN)
 
-# 📊 ДАННЫЕ ПО РЕЙДАМ
+# Путь к папке с картинками
+IMAGES_DIR = Path(__file__).parent / "images"
+
+# Словарь с путями к картинкам
+STRUCTURE_IMAGES = {
+    'wood_wall': 'wood_wall.png',
+    'stone_wall': 'stone_wall.png',
+    'metal_wall': 'metal_wall.png',
+    'armored_wall': 'armored_wall.png',
+    'wood_door': 'wood_door.png',
+    'metal_door': 'metal_door.png',
+    'garage_door': 'garage_door.png'
+}
+
 RAID_DATA = {
     'wood_wall': {
         'name': '🪵 Деревянная стена',
@@ -80,7 +90,7 @@ RAID_DATA = {
         }
     },
     'garage_door': {
-        'name': '🚪 Гаражная дверь',
+        'name': '🏭 Гаражная дверь',
         'health': 1500,
         'methods': {
             'bobovki': {'count': 42, 'sulfur': 8400, 'powder': 4200},
@@ -92,6 +102,13 @@ RAID_DATA = {
     }
 }
 
+def get_image_path(structure_key):
+    """Возвращает путь к изображению структуры"""
+    image_name = STRUCTURE_IMAGES.get(structure_key)
+    if image_name:
+        return IMAGES_DIR / image_name
+    return None
+
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     markup = types.InlineKeyboardMarkup(row_width=2)
@@ -102,56 +119,83 @@ def send_welcome(message):
         types.InlineKeyboardButton("🏛️ МВК стена", callback_data="armored_wall"),
         types.InlineKeyboardButton("🚪 Деревянная дверь", callback_data="wood_door"),
         types.InlineKeyboardButton("🚪 Железная дверь", callback_data="metal_door"),
-        types.InlineKeyboardButton("🚪 Гаражная дверь", callback_data="garage_door"),
+        types.InlineKeyboardButton("🏭 Гаражная дверь", callback_data="garage_door"),
     ]
     markup.add(*buttons)
     
-    welcome_text = (
+    bot.send_message(message.chat.id, 
         "🎮 **Rust Raid Helper** 🎮\n\n"
         "📊 Актуальные данные по рейдам\n\n"
-        "Выберите структуру:\n\n"
-        "👇 Нажмите на кнопку ниже:"
-    )
-    
-    bot.send_message(message.chat.id, welcome_text, reply_markup=markup, parse_mode='Markdown')
+        "Выберите структуру:", 
+        reply_markup=markup, parse_mode='Markdown')
 
 @bot.callback_query_handler(func=lambda call: call.data in RAID_DATA)
 def show_raid_info(call):
-    structure = RAID_DATA[call.data]
+    structure_key = call.data
+    structure = RAID_DATA[structure_key]
     methods = structure['methods']
     
-    info_text = (
-        f"{structure['name']}\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"💚 **Здоровье:** {structure['health']} HP\n\n"
-        f"💥 **СПОСОБЫ БАБАХА:**\n\n"
-        f"🟡 **Бобовки (Timed Charge):**\n"
-        f"   • Количество: `{methods['bobovki']['count']}` шт.\n"
-        f"   • Сера: `{methods['bobovki']['sulfur']:,}` шт.\n"
-        f"   • Порох: `{methods['bobovki']['powder']:,}` шт.\n\n"
-        f"🎒 **Сачель (Satchel):**\n"
-        f"   • Количество: `{methods['satchels']['count']}` шт.\n"
-        f"   • Сера: `{methods['satchels']['sulfur']:,}` шт.\n"
-        f"   • Порох: `{methods['satchels']['powder']:,}` шт.\n\n"
-        f"🔫 **Разрывные патроны:**\n"
-        f"   • Количество: `{methods['explosive_ammo']['count']}` шт.\n"
-        f"   • Сера: `{methods['explosive_ammo']['sulfur']:,}` шт.\n"
-        f"   • Порох: `{methods['explosive_ammo']['powder']:,}` шт.\n\n"
-        f"🚀 **Ракеты:**\n"
-        f"   • Количество: `{methods['rockets']['count']}` шт.\n"
-        f"   • Сера: `{methods['rockets']['sulfur']:,}` шт.\n"
-        f"   • Порох: `{methods['rockets']['powder']:,}` шт.\n\n"
-        f"💥 **C4:**\n"
-        f"   • Количество: `{methods['c4']['count']}` шт.\n"
-        f"   • Сера: `{methods['c4']['sulfur']:,}` шт.\n"
-        f"   • Порох: `{methods['c4']['powder']:,}` шт.\n"
-        f"━━━━━━━━━━━━━━━━━━━━"
-    )
+    # Пытаемся отправить с картинкой
+    try:
+        image_path = get_image_path(structure_key)
+        if image_path and image_path.exists():
+            with open(image_path, 'rb') as img_file:
+                # Отправляем фото с подписью
+                caption = (
+                    f"💥 **СПОСОБЫ БАБАХА:**\n\n"
+                    f"🟡 **Бобовки:** `{methods['bobovki']['count']}` шт.\n"
+                    f"   💰 Сера: `{methods['bobovki']['sulfur']:,}` | ⚫ Порох: `{methods['bobovki']['powder']:,}`\n\n"
+                    f"🎒 **Сачель:** `{methods['satchels']['count']}` шт.\n"
+                    f"   💰 Сера: `{methods['satchels']['sulfur']:,}` | ⚫ Порох: `{methods['satchels']['powder']:,}`\n\n"
+                    f"🔫 **Разрывные патроны:** `{methods['explosive_ammo']['count']}` шт.\n"
+                    f"   💰 Сера: `{methods['explosive_ammo']['sulfur']:,}` | ⚫ Порох: `{methods['explosive_ammo']['powder']:,}`\n\n"
+                    f"🚀 **Ракеты:** `{methods['rockets']['count']}` шт.\n"
+                    f"   💰 Сера: `{methods['rockets']['sulfur']:,}` | ⚫ Порох: `{methods['rockets']['powder']:,}`\n\n"
+                    f"💥 **C4:** `{methods['c4']['count']}` шт.\n"
+                    f"   💰 Сера: `{methods['c4']['sulfur']:,}` | ⚫ Порох: `{methods['c4']['powder']:,}`"
+                )
+                
+                bot.send_photo(
+                    call.message.chat.id,
+                    img_file,
+                    caption=caption,
+                    parse_mode='Markdown',
+                    reply_markup=types.InlineKeyboardMarkup().add(
+                        types.InlineKeyboardButton("🔙 Назад", callback_data="back")
+                    )
+                )
+        else:
+            raise FileNotFoundError("Image not found")
+    except Exception as e:
+        # Если картинки нет, отправляем только текст
+        print(f"⚠️  Ошибка отправки картинки: {e}")
+        caption = (
+            f"{structure['name']}\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"💚 **HP:** {structure['health']}\n\n"
+            f"💥 **СПОСОБЫ БАБАХА:**\n\n"
+            f"🟡 **Бобовки:** `{methods['bobovki']['count']}` шт.\n"
+            f"   💰 Сера: `{methods['bobovki']['sulfur']:,}` | ⚫ Порох: `{methods['bobovki']['powder']:,}`\n\n"
+            f"🎒 **Сачель:** `{methods['satchels']['count']}` шт.\n"
+            f"   💰 Сера: `{methods['satchels']['sulfur']:,}` | ⚫ Порох: `{methods['satchels']['powder']:,}`\n\n"
+            f"🔫 **Разрывные патроны:** `{methods['explosive_ammo']['count']}` шт.\n"
+            f"   💰 Сера: `{methods['explosive_ammo']['sulfur']:,}` | ⚫ Порох: `{methods['explosive_ammo']['powder']:,}`\n\n"
+            f"🚀 **Ракеты:** `{methods['rockets']['count']}` шт.\n"
+            f"   💰 Сера: `{methods['rockets']['sulfur']:,}` | ⚫ Порох: `{methods['rockets']['powder']:,}`\n\n"
+            f"💥 **C4:** `{methods['c4']['count']}` шт.\n"
+            f"   💰 Сера: `{methods['c4']['sulfur']:,}` | ⚫ Порох: `{methods['c4']['powder']:,}`\n"
+            f"━━━━━━━━━━━━━━━━━━━━"
+        )
+        
+        bot.send_message(
+            call.message.chat.id,
+            caption,
+            parse_mode='Markdown',
+            reply_markup=types.InlineKeyboardMarkup().add(
+                types.InlineKeyboardButton("🔙 Назад", callback_data="back")
+            )
+        )
     
-    back_markup = types.InlineKeyboardMarkup()
-    back_markup.add(types.InlineKeyboardButton("🔙 Назад в меню", callback_data="back"))
-    
-    bot.send_message(call.message.chat.id, info_text, reply_markup=back_markup, parse_mode='Markdown')
     bot.answer_callback_query(call.id)
 
 @bot.callback_query_handler(func=lambda call: call.data == "back")
@@ -159,12 +203,6 @@ def go_back(call):
     bot.answer_callback_query(call.id)
     send_welcome(call.message)
 
-@bot.message_handler(func=lambda message: True)
-def echo_all(message):
-    bot.reply_to(message, "🤔 Используйте команду /start")
-
 if __name__ == '__main__':
-    print("🤖 Rust Raid Bot запущен...")
-    print("🌗 Прокси: 198.177.254.157:4145 (США) - БЫСТРЫЙ")
-    print("✅ Бот готов к работе!")
-    bot.infinity_polling(timeout=60, long_polling_timeout=60)
+    print("🤖 Rust Raid Bot запущен на Railway!")
+    bot.infinity_polling()
