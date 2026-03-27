@@ -5,7 +5,7 @@ from pathlib import Path
 
 logging.basicConfig(level=logging.INFO)
 
-BOT_TOKEN = os.environ.get("8629480121:AAFPHKKdk7X-IOKyZZIDd_V-QcuKdmS2FHc")
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
 bot = TeleBot(BOT_TOKEN)
 
 # Путь к папке с картинками
