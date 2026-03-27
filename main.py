@@ -9,7 +9,7 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")
 bot = TeleBot(BOT_TOKEN)
 
 # Путь к папке с картинками
-IMAGES_DIR = Path(__file__).parent / "images"
+IMAGES_DIR = Path(__file__).parent
 
 # Словарь с путями к картинкам
 STRUCTURE_IMAGES = {
