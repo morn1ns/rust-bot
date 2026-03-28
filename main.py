@@ -2,16 +2,25 @@ import logging
 from telebot import TeleBot, types
 import os
 from pathlib import Path
+import time
 
 logging.basicConfig(level=logging.INFO)
 
+# Получаем токен
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
+
+if not BOT_TOKEN:
+    print("❌ ОШИБКА: BOT_TOKEN не найден!")
+    exit(1)
+
+print(f"✅ Токен получен: {BOT_TOKEN[:10]}...")
+
 bot = TeleBot(BOT_TOKEN)
 
-# Путь к папке с картинками
-IMAGES_DIR = Path(__file__).parent
+# Путь к картинкам (в корне репозитория)
+BASE_DIR = Path(__file__).parent
 
-# Словарь с путями к картинкам
+# Словарь с именами картинок (8 структур!)
 STRUCTURE_IMAGES = {
     'wood_wall': 'wood_wall.png',
     'stone_wall': 'stone_wall.png',
@@ -19,7 +28,8 @@ STRUCTURE_IMAGES = {
     'armored_wall': 'armored_wall.png',
     'wood_door': 'wood_door.png',
     'metal_door': 'metal_door.png',
-    'garage_door': 'garage_door.png'
+    'garage_door': 'garage_door.png',
+    'armored_door': 'armored_door.png'  # НОВАЯ!
 }
 
 RAID_DATA = {
@@ -99,6 +109,17 @@ RAID_DATA = {
             'rockets': {'count': 3, 'sulfur': 4200, 'powder': 1440},
             'c4': {'count': 2, 'sulfur': 4400, 'powder': 960}
         }
+    },
+    'armored_door': {  # НОВАЯ МВК ДВЕРЬ!
+        'name': '🏛️ МВК дверь',
+        'health': 2000,
+        'methods': {
+            'bobovki': {'count': 223, 'sulfur': 44600, 'powder': 22300},
+            'satchels': {'count': 46, 'sulfur': 22080, 'powder': 11040},
+            'explosive_ammo': {'count': 798, 'sulfur': 19950, 'powder': 7980},
+            'rockets': {'count': 16, 'sulfur': 22400, 'powder': 7680},
+            'c4': {'count': 8, 'sulfur': 17600, 'powder': 3840}
+        }
     }
 }
 
@@ -106,7 +127,7 @@ def get_image_path(structure_key):
     """Возвращает путь к изображению структуры"""
     image_name = STRUCTURE_IMAGES.get(structure_key)
     if image_name:
-        return IMAGES_DIR / image_name
+        return BASE_DIR / image_name
     return None
 
 @bot.message_handler(commands=['start'])
@@ -120,6 +141,7 @@ def send_welcome(message):
         types.InlineKeyboardButton("🚪 Деревянная дверь", callback_data="wood_door"),
         types.InlineKeyboardButton("🚪 Железная дверь", callback_data="metal_door"),
         types.InlineKeyboardButton("🏭 Гаражная дверь", callback_data="garage_door"),
+        types.InlineKeyboardButton("🏛️ МВК дверь", callback_data="armored_door"),  # НОВАЯ!
     ]
     markup.add(*buttons)
     
@@ -135,12 +157,10 @@ def show_raid_info(call):
     structure = RAID_DATA[structure_key]
     methods = structure['methods']
     
-    # Пытаемся отправить с картинкой
     try:
         image_path = get_image_path(structure_key)
         if image_path and image_path.exists():
             with open(image_path, 'rb') as img_file:
-                # Отправляем фото с подписью
                 caption = (
                     f"💥 **СПОСОБЫ БАБАХА:**\n\n"
                     f"🟡 **Бобовки:** `{methods['bobovki']['count']}` шт.\n"
@@ -167,8 +187,7 @@ def show_raid_info(call):
         else:
             raise FileNotFoundError("Image not found")
     except Exception as e:
-        # Если картинки нет, отправляем только текст
-        print(f"⚠️  Ошибка отправки картинки: {e}")
+        print(f"⚠️ Ошибка отправки картинки: {e}")
         caption = (
             f"{structure['name']}\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
@@ -205,4 +224,13 @@ def go_back(call):
 
 if __name__ == '__main__':
     print("🤖 Rust Raid Bot запущен на Railway!")
-    bot.infinity_polling()
+    try:
+        bot.infinity_polling(
+            none_stop=True,
+            interval=3,
+            timeout=60,
+            long_polling_timeout=60
+        )
+    except Exception as e:
+        print(f"❌ Критическая ошибка: {e}")
+        time.sleep(5)
