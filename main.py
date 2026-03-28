@@ -13,7 +13,7 @@ if not BOT_TOKEN:
     print("❌ ОШИБКА: BOT_TOKEN не найден!")
     exit(1)
 
-print(f"✅ Токен получен: {BOT_TOKEN[:10]}...")
+print(f"✅ Токен получен: {BOT_TOKEN[:10]}...") # v2
 
 bot = TeleBot(BOT_TOKEN)
 
